@@ -1,0 +1,12 @@
+---
+title: "datascience_2_midterm"
+output: html_document
+date: "2025-03-27"
+---
+
+```{r}
+training_data <- load("dat1.RData")
+test_data <- load("dat2.RData")
+
+
+```
