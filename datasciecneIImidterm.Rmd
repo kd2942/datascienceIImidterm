@@ -3,10 +3,18 @@ title: "datascience_2_midterm"
 output: html_document
 date: "2025-03-27"
 ---
-
-```{r}
-training_data <- load("dat1.RData")
-test_data <- load("dat2.RData")
-
-
+```{r loading libraries}
+library(dplyr)
+library(tidyverse)
+library(survival)
+library(ggsurvfit)
+library(gtsummary)
+library(glue)
+library(labelled)
 ```
+
+```{r loading data sets}
+training_data <- load("dat1.RData")
+testing_data <- load("dat2.RData")
+```
+
