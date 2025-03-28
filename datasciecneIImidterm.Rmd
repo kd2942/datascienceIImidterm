@@ -14,7 +14,43 @@ library(labelled)
 ```
 
 ```{r loading data sets}
-training_data <- load("dat1.RData")
-testing_data <- load("dat2.RData")
+load("dat1.RData")
+load("dat2.RData")
+```
+
+```{r adding labels}
+#mutating factor variables and creating labels for baseline characteristic table
+table_data = dat1 |>
+  mutate(gender = factor(gender, levels = c(0,1), labels = c("Female","Male")),
+         race = factor(race, levels = c(1,2,3,4), labels = c("White","Asian","Black","Hispanic")),
+         smoking = factor(smoking, levels = c(0,1,2), labels = c("Never Smoked", "Former Smoker", "Current Smoker")),
+         diabetes = factor(diabetes, levels = c(0,1), labels = c("No","Yes")),
+         hypertension = factor(hypertension, levels = c(0,1), labels = c("No", "Yes")))
+
+#creating table labels
+var_label(table_data) = list(
+  age = "Age (in years)",
+  gender = "Gender",
+  race = "Race/ethnicity",
+  smoking = "Smoking Status",
+  height = "Height (in centimeters)",
+  weight = "Weight (in kilograms)",
+  bmi = "BMI (body mass index)",
+  diabetes = "Diabetes",
+  hypertension = "Hypertension",
+  SBP = "Systolic Blood Pressure (mmHg)",
+  LDL = "LDL Cholesterol (mg/dL)",
+  time = "Time Since Vaccination (in days)"
+)
+```
+
+```{r baseline characteristic table}
+#outputting table
+table = table_data |>
+  select(age, gender, race, smoking, height, weight, bmi, diabetes, hypertension, SBP, LDL, time) |>
+  tbl_summary(
+    missing_text = "(Missing)",
+    statistic = list(all_continuous() ~ "{mean} ± {sd}")
+  ) 
 ```
 

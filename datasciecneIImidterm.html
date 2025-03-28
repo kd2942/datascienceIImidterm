@@ -379,8 +379,38 @@ library(ggsurvfit)
 library(gtsummary)
 library(glue)
 library(labelled)</code></pre>
-<pre class="r"><code>training_data &lt;- load(&quot;dat1.RData&quot;)
-testing_data &lt;- load(&quot;dat2.RData&quot;)</code></pre>
+<pre class="r"><code>load(&quot;dat1.RData&quot;)
+load(&quot;dat2.RData&quot;)</code></pre>
+<pre class="r"><code>#mutating factor variables and creating labels for baseline characteristic table
+table_data = dat1 |&gt;
+  mutate(gender = factor(gender, levels = c(0,1), labels = c(&quot;Female&quot;,&quot;Male&quot;)),
+         race = factor(race, levels = c(1,2,3,4), labels = c(&quot;White&quot;,&quot;Asian&quot;,&quot;Black&quot;,&quot;Hispanic&quot;)),
+         smoking = factor(smoking, levels = c(0,1,2), labels = c(&quot;Never Smoked&quot;, &quot;Former Smoker&quot;, &quot;Current Smoker&quot;)),
+         diabetes = factor(diabetes, levels = c(0,1), labels = c(&quot;No&quot;,&quot;Yes&quot;)),
+         hypertension = factor(hypertension, levels = c(0,1), labels = c(&quot;No&quot;, &quot;Yes&quot;)))
+
+#creating table labels
+var_label(table_data) = list(
+  age = &quot;Age (in years)&quot;,
+  gender = &quot;Gender&quot;,
+  race = &quot;Race/ethnicity&quot;,
+  smoking = &quot;Smoking Status&quot;,
+  height = &quot;Height (in centimeters)&quot;,
+  weight = &quot;Weight (in kilograms)&quot;,
+  bmi = &quot;BMI (body mass index)&quot;,
+  diabetes = &quot;Diabetes&quot;,
+  hypertension = &quot;Hypertension&quot;,
+  SBP = &quot;Systolic Blood Pressure (mmHg)&quot;,
+  LDL = &quot;LDL Cholesterol (mg/dL)&quot;,
+  time = &quot;Time Since Vaccination (in days)&quot;
+)</code></pre>
+<pre class="r"><code>#outputting table
+table = table_data |&gt;
+  select(age, gender, race, smoking, height, weight, bmi, diabetes, hypertension, SBP, LDL, time) |&gt;
+  tbl_summary(
+    missing_text = &quot;(Missing)&quot;,
+    statistic = list(all_continuous() ~ &quot;{mean} ± {sd}&quot;)
+  ) </code></pre>
 
 
 
