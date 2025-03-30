@@ -13,6 +13,9 @@ library(glue)
 library(labelled)
 library(rpart.plot)
 library(rpart)
+library(party)
+library(partykit)
+library(caret)
 ```
 
 ```{r loading data sets}
@@ -62,10 +65,222 @@ print(table)
 #setting seed for reproducibility
 set.seed(1)
 
+#applying the regression tree method to the data using a complexity parameter of 0.01
 tree1 = rpart(formula = log_antibody~.,
               data = dat1,
               control = rpart.control(cp=0.01))
 
 rpart.plot(tree1)
+
+#applying cost complexity pruning to obtain a tree with the right size
+printcp(tree1)
+cpTable = tree1$cptable
+plotcp(tree1)
+
+#picking the cp that yields the minimum cross-validation error
+minErr = which.min(cpTable[,4])
+tree3 = rpart::prune(tree1, cp = cpTable[minErr,1])
+rpart.plot(tree3)
+plot(as.party(tree3))
+
+#predictions on the test data set
+head(predict(tree3, newdata=dat2))
+
+#computing the RMSE on the test set
+RMSE(predict(tree3, newdata=dat2),dat2$log_antibody)
 ```
+The RMSE for this model is 0.5873775.
+
+```{r data visualization of association between predictors and log antibody levels}
+##Distribution of Log Antibody Levels by Race/Ethnicity
+age_antibody <- ggplot(table_data, aes(x = age, y = log_antibody)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(x = "Age", y = "Average Log Antibody Level", 
+       title = "Average Log Antibody Levels by Age") +
+  theme_minimal()
+
+age_antibody
+
+#Average Log Antibody Levels by Gender"
+gender_antibody <- ggplot(table_data, aes(x = factor(gender), y = log_antibody)) +
+  geom_boxplot() +
+  labs(x = "Gender", y = "Log Antibody Level") +
+  theme_minimal() 
+
+gender_antibody
+
+#Distribution of Log Antibody Levels by Race/Ethnicity
+race_antibody <- ggplot(table_data, aes(x = log_antibody, fill = factor(race))) +
+  geom_histogram(binwidth = 0.1, position = "identity", alpha = 0.6, color = "black") +
+  labs(x = "Log Antibody Level", y = "Count", title = "Distribution of Log Antibody Levels by Race/Ethnicity") +
+  scale_fill_manual(values = c("blue", "orange", "green", "purple"), 
+                    labels = c("1" = "White", "2" = "Asian", "3" = "Black", "4" = "Hispanic")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+
+race_antibody
+
+#Average Log Antibody Levels by Smoking Status
+smoking_antibody <- ggplot(table_data, aes(x = factor(smoking), y = log_antibody)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(x = "Smoking Status", y = "Average Log Antibody Level", 
+       title = "Average Log Antibody Levels by Smoking Status") +
+  scale_x_discrete(labels = c("0" = "Never Smoked", 
+                               "1" = "Former Smoker", 
+                               "2" = "Current Smoker")) +
+  theme_minimal()
+
+smoking_antibody
+
+#Distribution of Log Antibody Levels by BMI 
+bmi_antibody <- ggplot(table_data, aes_string(x = "bmi", y = "log_antibody")) +
+  geom_point(color = "darkgreen", alpha = 0.5) +
+  geom_smooth(method = "loess", span = 0.5, color = "red", se = FALSE) +
+  theme_bw() +
+  labs(x = "BMI", y = "Log Antibody Levels")
+
+bmi_antibody
+
+#Average Log Antibody levels by diabetes status
+diabetes_antibody <- ggplot(table_data, aes(x = factor(diabetes), y = log_antibody)) +
+  geom_boxplot() +
+  labs(x = "Diabetes", y = "Log Antibody Level") +
+  theme_minimal()
+
+diabetes_antibody
+
+#Average Log Antibody levels by hypertension status
+hypertension_antibody <- ggplot(table_data, aes(x = factor(hypertension), y = log_antibody)) +
+  geom_boxplot() +
+  labs(x = "Hypertension", y = "Log Antibody Level") +
+  theme_minimal()
+
+hypertension_antibody
+
+#Distribution of Log Antibody Levels by SBP 
+sbp_antibody <- ggplot(table_data, aes_string(x = "SBP", y = "log_antibody")) +
+  geom_point(color = "darkgreen", alpha = 0.5) +
+  geom_smooth(method = "loess", span = 0.5, color = "red", se = FALSE) +
+  theme_bw() +
+  labs(x = "SBP", y = "Log Antibody Levels")
+
+sbp_antibody 
+
+#Distribution of Log Antibody Levels by LDL
+LDL_antibody <- ggplot(table_data, aes_string(x = "LDL", y = "log_antibody")) +
+  geom_point(color = "darkgreen", alpha = 0.5) +
+  geom_smooth(method = "loess", span = 0.5, color = "red", se = FALSE) +
+  theme_bw() +
+  labs(x = "LDL", y = "Log Antibody Levels")
+
+LDL_antibody
+
+#Distribution of Log Antibody Levels by Time Since Vaccination 
+time_antibody <- ggplot(table_data, aes_string(x = "time", y = "log_antibody")) +
+  geom_point(color = "darkgreen", alpha = 0.5) +
+  geom_smooth(method = "loess", span = 0.5, color = "red", se = FALSE) +
+  theme_bw() +
+  labs(x = "Time Since Vaccination", y = "Log Antibody Levels")
+
+time_antibody
+```
+
+```{r Model Building TINA }
+#MARS
+x <- model.matrix(log_antibody ~ ., dat1) [, -1]
+y <- dat1$log_antibody
+
+x2 <- model.matrix(log_antibody ~ ., dat2) [, -1]
+y2 <- dat2$log_antibody
+
+# I lowkey do not know what to change this to
+mars_grid <- expand.grid(degree = 1:3,
+                         nprune = 2:63) 
+set.seed(2)
+ctrl1 = trainControl(method = "cv", number = 10)
+
+mars.fit <- train(x, y,
+                  method = "earth",
+                  tuneGrid = mars_grid,
+                  trControl = ctrl1)
+print(mars.fit)
+ggplot(mars.fit)
+pdp::partial(mars.fit, pred.var =c("time"), grid.resolution=10) |> autoplot()
+mars.fit$bestTune
+coef(mars.fit$finalModel)
+
+predy2_mars2 = predict(mars.fit, newdata=x2)
+mean((y2 - predy2_mars2)^2)
+
+#GAM 
+gam.fit <- train(x, y,
+method = "gam",
+trControl = ctrl1)
+
+gam.fit$bestTune
+gam.fit$finalModel
+gam.m1 <- gam(log_antibody ~ time + age + gender + race + smoking + bmi + diabetes + hypertension + 
+    SBP + LDL, data = dat1) 
+
+gam.m2 <- gam(log_antibody ~ s(time) + age + gender + race + smoking + bmi + diabetes + hypertension + 
+    SBP + LDL, data = dat1) 
+
+anova(gam.m1, gam.m2, test = "F")
+
+plot(gam.m2)
+#Summary of the model
+summary(gam.fit)
+
+predy2_gam2 = predict(gam.fit, newdata=x2)
+mean((y2 - predy2_gam2)^2)
+
+#comparing models based on resampling results
+resamp = resamples(list(gam = gam.fit,
+                        mars = mars.fit))
+bwplot(resamp, metric = "RMSE")
+```
+
+```{r}
+ctrl1 = trainControl(method = "repeatedcv",
+                     number = 10,
+                     repeats = 5,
+                     selectionFunction = "best")
+
+#pcr using caret
+set.seed(2)
+
+pcr_fit = train(x,y,
+                method = "pcr",
+                tuneGrid = data.frame(ncomp=1:5),
+                trControl = ctrl1,
+                preProcess = c("center","scale"))
+
+predy2_pcr2 = predict(pcr_fit, newdata=x2)
+mean((y2 - predy2_pcr2)^2)
+
+#pls using caret
+pls_fit = train(x,y,
+                method="pls",
+                tunegrid = data.frame(ncomp=1:5),
+                trControl = ctrl1,
+                preProcess = c("center","scale"))
+
+predy2_pls2 = predict(pls_fit, newdata=x2)
+mean((y2 - predy2_pls2)^2)
+
+#enet using caret
+enet_fit = train(log_antibody ~.,
+                 data = dat1,
+                 method = "glmnet",
+                 tuneGrid = expand.grid(alpha=seq(0,1, length = 21),
+                                        lambda = exp(seq(6,0,length = 100))),
+                 trControl = ctrl1)
+
+#comparing models based on resampling results
+resamp = resamples(list(elastic_net = enet_fit,
+                        pcr = pcr_fit,
+                        pls = pls_fit))
+bwplot(resamp, metric = "RMSE")
+```
+
 
