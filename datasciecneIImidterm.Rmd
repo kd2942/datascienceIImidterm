@@ -61,36 +61,6 @@ table = table_data |>
 print(table)
 ```
 
-```{r the CART approach}
-#setting seed for reproducibility
-set.seed(1)
-
-#applying the regression tree method to the data using a complexity parameter of 0.01
-tree1 = rpart(formula = log_antibody~.,
-              data = dat1,
-              control = rpart.control(cp=0.01))
-
-rpart.plot(tree1)
-
-#applying cost complexity pruning to obtain a tree with the right size
-printcp(tree1)
-cpTable = tree1$cptable
-plotcp(tree1)
-
-#picking the cp that yields the minimum cross-validation error
-minErr = which.min(cpTable[,4])
-tree3 = rpart::prune(tree1, cp = cpTable[minErr,1])
-rpart.plot(tree3)
-plot(as.party(tree3))
-
-#predictions on the test data set
-head(predict(tree3, newdata=dat2))
-
-#computing the RMSE on the test set
-RMSE(predict(tree3, newdata=dat2),dat2$log_antibody)
-```
-The RMSE for this model is 0.5873775.
-
 ```{r data visualization of association between predictors and log antibody levels}
 ##Distribution of Log Antibody Levels by Race/Ethnicity
 age_antibody <- ggplot(table_data, aes(x = age, y = log_antibody)) +
@@ -185,6 +155,37 @@ time_antibody <- ggplot(table_data, aes_string(x = "time", y = "log_antibody")) 
 time_antibody
 ```
 
+
+```{r the CART approach}
+#setting seed for reproducibility
+set.seed(1)
+
+#applying the regression tree method to the data using a complexity parameter of 0.01
+tree1 = rpart(formula = log_antibody~.,
+              data = dat1,
+              control = rpart.control(cp=0.01))
+
+rpart.plot(tree1)
+
+#applying cost complexity pruning to obtain a tree with the right size
+printcp(tree1)
+cpTable = tree1$cptable
+plotcp(tree1)
+
+#picking the cp that yields the minimum cross-validation error
+minErr = which.min(cpTable[,4])
+tree3 = rpart::prune(tree1, cp = cpTable[minErr,1])
+rpart.plot(tree3)
+plot(as.party(tree3))
+
+#predictions on the test data set
+head(predict(tree3, newdata=dat2))
+
+#computing the RMSE on the test set
+RMSE(predict(tree3, newdata=dat2),dat2$log_antibody)
+```
+The RMSE for the regression tree model is 0.5873775.
+
 ```{r Model Building TINA }
 #MARS
 x <- model.matrix(log_antibody ~ ., dat1) [, -1]
@@ -239,6 +240,7 @@ resamp = resamples(list(gam = gam.fit,
                         mars = mars.fit))
 bwplot(resamp, metric = "RMSE")
 ```
+The RMSE for the MARS model is 0.2838458. The RMSE for the GAM model is 0.3233601. Resampling results provide additional evidence that the strongest of the two models compared above is the MARS model.
 
 ```{r}
 ctrl1 = trainControl(method = "repeatedcv",
@@ -277,10 +279,46 @@ enet_fit = train(log_antibody ~.,
                  trControl = ctrl1)
 
 #comparing models based on resampling results
-resamp = resamples(list(elastic_net = enet_fit,
-                        pcr = pcr_fit,
-                        pls = pls_fit))
+resamp = resamples(list(pcr = pcr_fit,
+                        pls = pls_fit,
+                        enet = enet_fit))
 bwplot(resamp, metric = "RMSE")
 ```
 
+The RMSE for the PCR model is 0.3675697. The RMSE for the PLS model is 0.324535. Resampling results provide additional evidence that the strongest of the three models compared above is the PLS model. 
 
+```{r}
+
+ctrl1 = trainControl(method = "cv", number = 10)
+
+#lasso using caret
+set.seed(2)
+lasso.fit = train(log_antibody ~.,
+                  data = dat1,
+                  method = "glmnet",
+                  tuneGrid = expand.grid(alpha=1,
+                                         lambda = exp(seq(6,0,length=100))),
+                  trControl = ctrl1)
+
+#lm using caret
+lm.fit = train(log_antibody ~.,
+               data = dat1,
+               method = "lm",
+               trControl = ctrl1)
+
+#ridge using caret
+ridge.fit = train(log_antibody ~.,
+                  data = dat1,
+                  method = "glmnet",
+                  tuneGrid = expand.grid(alpha=1,
+                                         lambda = exp(seq(6,0,length=100))),
+                  trControl = ctrl1)
+
+#comparing models based on resampling results
+resamp = resamples(list(lasso = lasso.fit,
+                        lm = lm.fit,
+                        ridge = ridge.fit))
+bwplot(resamp, metric = "RMSE")
+
+```
+Among the three models compared above, the lm model appears to be the 'best' based on resampling results (as it has the lowest RMSE).  
